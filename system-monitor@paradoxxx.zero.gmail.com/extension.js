@@ -2081,6 +2081,14 @@ const Gpu = class SystemMonitor_Gpu extends ElementBase {
         this.mem = 0;
         this.total = 0;
         this.tip_format();
+        try {
+            let [, , , status] = GLib.spawn_command_line_sync('nvidia-smi');
+			if (status !== 0) {
+				this.actor.visible = false
+			}
+        } catch (e) {
+            this.actor.visible = false
+        }
         this.update();
     }
     _unit(total) {
