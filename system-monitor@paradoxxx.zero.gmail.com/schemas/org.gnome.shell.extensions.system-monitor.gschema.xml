@@ -328,6 +328,11 @@
       <summary>Optimize view for small displays</summary>
       <description>Optimize texts sizes to fit on a small display </description>
     </key>
+    <key name="vertical-display" type="b">
+      <default>false</default>
+      <summary>Optimize view for vertical displays</summary>
+      <description>Optimize layout to fit on a vertical display </description>
+    </key>
     <key name="memory-program-color" type="s">
       <default>'#00b35b'</default>
       <summary>Color of program memory in the chart</summary>

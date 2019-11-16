@@ -188,6 +188,11 @@ const smStyleManager = class SystemMonitor_smStyleManager {
         this._bar_fontsize = 14;
         this._text_scaling = 1;
         this._compact = Schema.get_boolean('compact-display');
+        this._vertical = Schema.get_boolean('vertical-display')
+
+        if (this._vertical) {
+            this._extension = '-vertical';
+        }
 
         if (this._compact) {
             this._extension = '-compact';
@@ -319,7 +324,7 @@ const Chart = class SystemMonitor_Chart {
         for (let l = 0; l < data_a.length; l++) {
             accdata[l] = (l === 0) ? data_a[0] : accdata[l - 1] + ((data_a[l] > 0) ? data_a[l] : 0);
             this.data[l].push(accdata[l]);
-            if (this.data[l].length > this.width) {
+            if (this.data[l].length > (this.width > 100 ? this.width : 100) ) {
                 this.data[l].shift();
             }
         }
@@ -822,7 +827,11 @@ const ElementBase = class SystemMonitor_ElementBase extends TipBox {
         if (Style.get('') === '-compact') {
             element_width = Math.round(element_width / 1.5);
         }
-        this.chart = new Chart(element_width, IconSize, this);
+        if (Style.get('') === '-vertical') {
+            this.chart = new Chart(IconSize, element_width, this)
+        } else {
+            this.chart = new Chart(element_width, IconSize, this);
+        }
 
         Schema.connect('changed::background', () => {
             this.chart.actor.queue_repaint();
@@ -1740,77 +1749,110 @@ const Net = class SystemMonitor_Net extends ElementBase {
 
     _apply() {
         this.tip_vals = this.usage;
+        let down_unit, up_unit;
         if (this.speed_in_bits) {
             this.tip_vals[0] = Math.round(this.tip_vals[0] * 8.192);
             this.tip_vals[2] = Math.round(this.tip_vals[2] * 8.192);
             if (this.tip_vals[0] < 1000) {
-                this.text_items[2].text = Style.netunits_kbits();
+                down_unit = Style.netunits_kbits();
                 this.menu_items[1].text = this.tip_unit_labels[0].text = _('kbit/s');
             } else {
-                this.text_items[2].text = Style.netunits_mbits();
+                down_unit = Style.netunits_mbits();
                 this.menu_items[1].text = this.tip_unit_labels[0].text = _('Mbit/s');
                 this.tip_vals[0] = (this.tip_vals[0] / 1000).toPrecision(3);
             }
             if (this.tip_vals[2] < 1000) {
-                this.text_items[5].text = Style.netunits_kbits();
+                up_unit = Style.netunits_kbits();
                 this.menu_items[4].text = this.tip_unit_labels[2].text = _('kbit/s');
             } else {
-                this.text_items[5].text = Style.netunits_mbits();
+                up_unit = Style.netunits_mbits();
                 this.menu_items[4].text = this.tip_unit_labels[2].text = _('Mbit/s');
                 this.tip_vals[2] = (this.tip_vals[2] / 1000).toPrecision(3);
             }
         } else {
             if (this.tip_vals[0] < 1024) {
-                this.text_items[2].text = Style.netunits_kbytes();
+                down_unit = Style.netunits_kbytes();
                 this.menu_items[1].text = this.tip_unit_labels[0].text = _('KiB/s');
             } else {
-                this.text_items[2].text = Style.netunits_mbytes();
+                down_unit = Style.netunits_mbytes();
                 this.menu_items[1].text = this.tip_unit_labels[0].text = _('MiB/s');
                 this.tip_vals[0] = (this.tip_vals[0] / 1024).toPrecision(3);
             }
             if (this.tip_vals[2] < 1024) {
-                this.text_items[5].text = Style.netunits_kbytes();
+                up_unit = Style.netunits_kbytes();
                 this.menu_items[4].text = this.tip_unit_labels[2].text = _('KiB/s');
             } else {
-                this.text_items[5].text = Style.netunits_mbytes();
+                up_unit = Style.netunits_mbytes();
                 this.menu_items[4].text = this.tip_unit_labels[2].text = _('MiB/s');
                 this.tip_vals[2] = (this.tip_vals[2] / 1024).toPrecision(3);
             }
         }
 
-        if (Style.get('') !== '-compact') {
-            this.menu_items[0].text = this.text_items[1].text = this.tip_vals[0].toString();
-            this.menu_items[3].text = this.text_items[4].text = this.tip_vals[2].toString();
+        if (Style.get('') === '-vertical') {
+            this.menu_items[0].text = this.text_items[0].text = this.tip_vals[0].toString();
+            this.menu_items[3].text = this.text_items[2].text = this.tip_vals[2].toString();
+            this.text_items[1].text = '↓' + down_unit;
+            this.text_items[3].text = '↑' + up_unit;
         } else {
-            this.menu_items[0].text = this.text_items[1].text = this._pad(this.tip_vals[0].toString(), 4);
-            this.menu_items[3].text = this.text_items[4].text = this._pad(this.tip_vals[2].toString(), 4);
+            this.text_items[2].text = down_unit
+            this.text_items[5].text = up_unit
+            if (Style.get('') === '-compact'){
+                this.menu_items[0].text = this.text_items[1].text = this._pad(this.tip_vals[0].toString(), 4);
+                this.menu_items[3].text = this.text_items[4].text = this._pad(this.tip_vals[2].toString(), 4);
+            }
+            else {
+                this.menu_items[0].text = this.text_items[1].text = this.tip_vals[0].toString();
+                this.menu_items[3].text = this.text_items[4].text = this.tip_vals[2].toString();
+            }
+
         }
     }
     create_text_items() {
-        return [
-            new St.Icon({
-                icon_size: 2 * IconSize / 3 * Style.iconsize(),
-                icon_name: 'go-down-symbolic'}),
-            new St.Label({
-                text: '',
-                style_class: Style.get('sm-net-value'),
-                y_align: Clutter.ActorAlign.CENTER}),
-            new St.Label({
-                text: _('KiB/s'),
-                style_class: Style.get('sm-net-unit-label'),
-                y_align: Clutter.ActorAlign.CENTER}),
-            new St.Icon({
-                icon_size: 2 * IconSize / 3 * Style.iconsize(),
-                icon_name: 'go-up-symbolic'}),
-            new St.Label({
-                text: '',
-                style_class: Style.get('sm-net-value'),
-                y_align: Clutter.ActorAlign.CENTER}),
-            new St.Label({
-                text: _('KiB/s'),
-                style_class: Style.get('sm-net-unit-label'),
-                y_align: Clutter.ActorAlign.CENTER})
-        ];
+        if (Style.get('') !== '-vertical') {
+            return [
+                new St.Icon({
+                    icon_size: 2 * IconSize / 3 * Style.iconsize(),
+                    icon_name: 'go-down-symbolic'}),
+                new St.Label({
+                    text: '',
+                    style_class: Style.get('sm-net-value'),
+                    y_align: Clutter.ActorAlign.CENTER}),
+                new St.Label({
+                    text: _('KiB/s'),
+                    style_class: Style.get('sm-net-unit-label'),
+                    y_align: Clutter.ActorAlign.CENTER}),
+                new St.Icon({
+                    icon_size: 2 * IconSize / 3 * Style.iconsize(),
+                    icon_name: 'go-up-symbolic'}),
+                new St.Label({
+                    text: '',
+                    style_class: Style.get('sm-net-value'),
+                    y_align: Clutter.ActorAlign.CENTER}),
+                new St.Label({
+                    text: _('KiB/s'),
+                    style_class: Style.get('sm-net-unit-label'),
+                    y_align: Clutter.ActorAlign.CENTER})
+            ];
+        } else {
+            return [
+                new St.Label({
+                    text: '',
+                    style_class: Style.get('sm-net-value'),
+                    y_align: Clutter.ActorAlign.CENTER}),
+                new St.Label({
+                    text: _('KiB/s'),
+                    style_class: Style.get('sm-net-unit-label'),
+                    y_align: Clutter.ActorAlign.CENTER}),
+                new St.Label({
+                    text: '',
+                    style_class: Style.get('sm-net-value'),
+                    y_align: Clutter.ActorAlign.CENTER}),
+                new St.Label({
+                    text: _('KiB/s'),
+                    style_class: Style.get('sm-net-unit-label'),
+                    y_align: Clutter.ActorAlign.CENTER})
+            ];
+        }
     }
     create_menu_items() {
         return [
@@ -1975,7 +2017,12 @@ const Thermal = class SystemMonitor_Thermal extends ElementBase {
         this.fahrenheit_unit = Schema.get_boolean(this.elt + '-fahrenheit-unit');
     }
     _apply() {
-        this.text_items[0].text = this.menu_items[0].text = this.temperature_text();
+        this.menu_items[0].text = this.temperature_text();
+        if (Style.get('') !== '-vertical') {
+            this.text_items[0].text = this.temperature_text();
+        } else {
+            this.text_items[0].text = this.temperature_text() + this.temperature_symbol();
+        }
         // Making it looks better in chart.
         // this.vals = [this.temperature / 100];
         this.temp_over_threshold = this.temperature > Schema.get_int('thermal-threshold');
@@ -1985,16 +2032,25 @@ const Thermal = class SystemMonitor_Thermal extends ElementBase {
         this.tip_unit_labels[0].text = _(this.temperature_symbol());
     }
     create_text_items() {
-        return [
-            new St.Label({
-                text: '',
-                style_class: Style.get('sm-status-value'),
-                y_align: Clutter.ActorAlign.CENTER}),
-            new St.Label({
-                text: this.temperature_symbol(),
-                style_class: Style.get('sm-temp-label'),
-                y_align: Clutter.ActorAlign.CENTER})
-        ];
+        if (Style.get('') !== '-vertical') {
+            return [
+                new St.Label({
+                    text: '',
+                    style_class: Style.get('sm-status-value'),
+                    y_align: Clutter.ActorAlign.CENTER}),
+                new St.Label({
+                    text: this.temperature_symbol(),
+                    style_class: Style.get('sm-temp-label'),
+                    y_align: Clutter.ActorAlign.CENTER})
+            ];
+        } else {
+            return [
+                new St.Label({
+                    text: '',
+                    style_class: Style.get('sm-status-value'),
+                    y_align: Clutter.ActorAlign.CENTER}),
+            ]
+        }
     }
     create_menu_items() {
         return [

@@ -202,3 +202,106 @@
     width: 20px;
     padding: 1px 2px 1px 7px;
 }
+
+/* style definition when 'vertical-display' option is activated */
+.sm-title-vertical {
+    font-size: 1em;
+    padding: 0px 25px 0px 0px;
+}
+
+.sm-label-vertical {
+    color: #ffffff;
+    font-size: 0.75em;
+    padding-top: 5px;
+    font-family: monospace;
+}
+
+.sm-label-left-vertical {
+    color: #ffffff;
+    font-size: 0.75em;
+    padding: 5px 5px 0 0;
+}
+
+.sm-value-vertical {
+    text-align: right;
+    min-width: 40px;
+    padding: 2px 5px 0 0;
+    font-family: monospace;
+}
+
+.sm-status-label-vertical {
+    color: #ffffff;
+    font-size: 0.625em;
+    padding: 0 2px 0 5px;
+}
+
+.sm-unit-label-vertical,
+.sm-net-unit-label-vertical {
+    color: #ffffff;
+    font-size: 0.750em;
+}
+
+.sm-disk-unit-label-vertical {
+    color: #ffffff;
+    font-size: 0.625em;
+    padding: 0 5px 0 2px;
+}
+
+.sm-net-unit-label-vertical {
+    min-width: 25px;
+}
+
+.sm-perc-label-vertical {
+    color: #ffffff;
+    font-size: 0.625em;
+    padding: 0 5px 0 2px;
+}
+
+.sm-temp-label-vertical {
+    color: #ffffff;
+    font-size: 0.6875em;
+    padding: 0 5px 0 2px;
+}
+
+.sm-status-value-vertical {
+    min-width: 15px;
+    text-align: center;
+}
+
+.sm-net-value-vertical {
+    min-width: 30px;
+    text-align: center;
+}
+
+.sm-disk-value-vertical {
+    min-width: 25px;
+    text-align: right;
+}
+
+.sm-big-status-value-vertical {
+    min-width: 42px;
+    text-align: right;
+}
+
+.sm-chart-vertical {
+    padding: 0 2px;
+}
+
+.sm-tooltip-box-vertical {
+    font-size: 0.85em;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(10, 10, 10, 0.7);
+    border-radius: 5px;
+    padding: 3px;
+    border: 1px solid #a5a5a5;
+}
+
+.sm-tooltip-item-vertical {
+    padding: 0px;
+    spacing: 10px;
+}
+.sm-status-icon-vertical {
+    padding: 0px 2px;
+    icon-size: 1.14em;
+}

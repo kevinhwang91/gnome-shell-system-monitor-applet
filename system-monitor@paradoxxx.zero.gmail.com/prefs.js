@@ -326,6 +326,11 @@ const App = class SystemMonitor_App {
                 this.items.push(item)
                 this.hbox1.add(item)
                 Schema.bind(key, item, 'active', Gio.SettingsBindFlags.DEFAULT);
+            } else if (key === 'vertical-display') {
+                let item = new Gtk.CheckButton({label: _('Vertical Display')})
+                this.items.push(item)
+                this.hbox1.add(item)
+                Schema.bind(key, item, 'active', Gio.SettingsBindFlags.DEFAULT);
             } else if (key === 'show-tooltip') {
                 let item = new Gtk.CheckButton({label: _('Show tooltip')})
                 item.set_active(Schema.get_boolean(key))
