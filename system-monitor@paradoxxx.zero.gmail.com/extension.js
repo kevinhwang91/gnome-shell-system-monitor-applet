@@ -35,7 +35,8 @@ var Lang = imports.lang;
 var Gio = imports.gi.Gio;
 var Shell = imports.gi.Shell;
 var St = imports.gi.St;
-var Power = imports.ui.status.power;
+const UPower = imports.gi.UPowerGlib;
+
 // const System = imports.system;
 var ModalDialog = imports.ui.modalDialog;
 
@@ -166,7 +167,11 @@ function build_menu_info() {
 
         row_index++;
     }
-    tray_menu._getMenuItems()[0].actor.get_last_child().add(menu_info_box_table, {expand: true});
+    if (shell_Version < '3.36') {
+        tray_menu._getMenuItems()[0].actor.get_last_child().add(menu_info_box_table, {expand: true});
+    } else {
+        tray_menu._getMenuItems()[0].actor.get_last_child().add_child(menu_info_box_table);
+    }
 }
 
 function change_menu() {
@@ -343,7 +348,7 @@ const Chart = class SystemMonitor_Chart {
         for (let l = 0; l < data_a.length; l++) {
             accdata[l] = (l === 0) ? data_a[0] : accdata[l - 1] + ((data_a[l] > 0) ? data_a[l] : 0);
             this.data[l].push(accdata[l]);
-            if (this.data[l].length > (this.width > 100 ? this.width : 100) ) {
+            if (this.data[l].length > (this.width > 100 ? this.width : 100)) {
                 this.data[l].shift();
             }
         }
@@ -544,7 +549,11 @@ const Graph = class SystemMonitor_Graph {
     }
     create_menu_item() {
         this.menu_item = new PopupMenu.PopupBaseMenuItem({reactive: false});
-        this.menu_item.actor.add(this.actor, {span: -1, expand: true});
+        if (shell_Version < '3.36') {
+            this.menu_item.actor.add(this.actor, {span: -1, expand: true});
+        } else {
+            this.menu_item.actor.add_child(this.actor);
+        }
         // tray.menu.addMenuItem(this.menu_item);
     }
     show(visible) {
@@ -657,20 +666,32 @@ const Pie = class SystemMonitor_Pie extends Graph {
     }
 }
 
-const TipItem = GObject.registerClass(
-    {
-        GTypeName: 'TipItem'
-    },
-    class TipItem extends PopupMenu.PopupBaseMenuItem {
-        _init() {
-            super._init();
+var TipItem = null;
+
+if (shell_Version < '3.36') {
+    TipItem = class SystemMonitor_TipItem extends PopupMenu.PopupBaseMenuItem {
+        constructor() {
+            super();
             // PopupMenu.PopupBaseMenuItem.prototype._init.call(this);
             this.actor.remove_style_class_name('popup-menu-item');
             this.actor.add_style_class_name('sm-tooltip-item');
         }
     }
-);
-
+} else {
+    TipItem = GObject.registerClass(
+        {
+            GTypeName: 'TipItem'
+        },
+        class TipItem extends PopupMenu.PopupBaseMenuItem {
+            _init() {
+                super._init();
+                // PopupMenu.PopupBaseMenuItem.prototype._init.call(this);
+                this.actor.remove_style_class_name('popup-menu-item');
+                this.actor.add_style_class_name('sm-tooltip-item');
+            }
+        }
+    );
+}
 const TipMenu = class SystemMonitor_TipMenu extends PopupMenu.PopupMenuBase {
     constructor(sourceActor) {
         // PopupMenu.PopupMenuBase.prototype._init.call(this, sourceActor, 'sm-tooltip-box');
@@ -958,7 +979,9 @@ const ElementBase = class SystemMonitor_ElementBase extends TipBox {
         }
         this.chart.update();
         for (let i = 0; i < this.tip_vals.length; i++) {
-            this.tip_labels[i].text = this.tip_vals[i].toString();
+            if (this.tip_labels[i]) {
+                this.tip_labels[i].text = this.tip_vals[i].toString();
+            }
         }
         return true;
     }
@@ -1024,7 +1047,7 @@ const Battery = class SystemMonitor_Battery extends ElementBase {
         let isBattery = false;
         if (typeof (this._proxy.GetDevicesRemote) === 'undefined') {
             let device_type = this._proxy.Type;
-            isBattery = (device_type === Power.UPower.DeviceKind.BATTERY);
+            isBattery = (device_type === UPower.DeviceKind.BATTERY);
             if (isBattery) {
                 battery_found = true;
                 let icon = this._proxy.IconName;
@@ -1051,7 +1074,7 @@ const Battery = class SystemMonitor_Battery extends ElementBase {
                 for (let i = 0; i < result.length; i++) {
                     let [device_id, device_type, icon, percentage, state, seconds] = result[i];
 
-                    isBattery = (device_type === Power.UPower.DeviceKind.BATTERY);
+                    isBattery = (device_type === UPower.DeviceKind.BATTERY);
                     if (isBattery) {
                         battery_found = true;
                         this.update_battery_value(seconds, percentage, icon);
@@ -1417,27 +1440,32 @@ const Disk = class SystemMonitor_Disk extends ElementBase {
     }
     refresh() {
         let accum = [0, 0];
-        let lines = Shell.get_file_contents_utf8_sync('/proc/diskstats').split('\n');
 
-        for (let i = 0; i < lines.length; i++) {
-            let line = lines[i];
-            let entry = line.trim().split(/[\s]+/);
-            if (typeof (entry[1]) === 'undefined') {
-                break;
-            }
-            accum[0] += parseInt(entry[5]);
-            accum[1] += parseInt(entry[9]);
-        }
+        let file = Gio.file_new_for_path('/proc/diskstats');
+        file.load_contents_async(null, (source, result) => {
+            let as_r = source.load_contents_finish(result);
+            let lines = ByteArray.toString(as_r[1]).split('\n');
 
-        let time = GLib.get_monotonic_time() / 1000;
-        let delta = (time - this.last_time) / 1000;
-        if (delta > 0) {
-            for (let i = 0; i < 2; i++) {
-                this.usage[i] = ((accum[i] - this.last[i]) / delta / 1024 / 8);
-                this.last[i] = accum[i];
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+                let entry = line.trim().split(/[\s]+/);
+                if (typeof (entry[1]) === 'undefined') {
+                    break;
+                }
+                accum[0] += parseInt(entry[5]);
+                accum[1] += parseInt(entry[9]);
             }
-        }
-        this.last_time = time;
+
+            let time = GLib.get_monotonic_time() / 1000;
+            let delta = (time - this.last_time) / 1000;
+            if (delta > 0) {
+                for (let i = 0; i < 2; i++) {
+                    this.usage[i] = ((accum[i] - this.last[i]) / delta / 1024 / 8);
+                    this.last[i] = accum[i];
+                }
+            }
+            this.last_time = time;
+        });
     }
     _apply() {
         this.vals = this.usage.slice();
@@ -2395,7 +2423,11 @@ function enable() {
         // The spacing adds a distance between the graphs/text on the top bar
         let spacing = Schema.get_boolean('compact-display') ? '1' : '4';
         let box = new St.BoxLayout({style: 'spacing: ' + spacing + 'px;'});
-        tray.add_actor(box);
+        if (shell_Version < '3.36') {
+            tray.actor.add_actor(box);
+        } else {
+            tray.add_actor(box);
+        }
         box.add_actor(Main.__sm.icon.actor);
         // Add items to panel box
         for (let elt in elts) {
@@ -2458,7 +2490,9 @@ function enable() {
 
         item = new PopupMenu.PopupMenuItem(_('Preferences...'));
         item.connect('activate', () => {
-            if (_gsmPrefs.get_state() === _gsmPrefs.SHELL_APP_STATE_RUNNING) {
+            if (typeof ExtensionUtils.openPrefs === 'function') {
+                ExtensionUtils.openPrefs();
+            } else if (_gsmPrefs.get_state() === _gsmPrefs.SHELL_APP_STATE_RUNNING) {
                 _gsmPrefs.activate();
             } else {
                 let info = _gsmPrefs.get_app_info();
@@ -2502,8 +2536,11 @@ function disable() {
     for (let eltName in Main.__sm.elts) {
         Main.__sm.elts[eltName].destroy();
     }
-
-    Main.__sm.tray.actor.destroy();
+    if (shell_Version < '3.36') {
+        Main.__sm.tray.actor.destroy();
+    } else {
+        Main.__sm.tray.destroy();
+    }
     Main.__sm = null;
 
     log('[System monitor] applet disable');
